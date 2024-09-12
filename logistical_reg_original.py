@@ -51,16 +51,36 @@ def confusion_matrix(y_true, y_pred, threshold=0.5):
                    'Recall: ': recall}
 
 
-# Apply dot function to the parameters and the sample
-def linear(params, sample):
-    return np.dot(params, sample)   
 
-# Prevent log(0) issues and calculate the binary cross entropy
+# Plots to visualize the data and get better predictions
+# Plot the error histogram
+def plot_error_histogram(y_real, y_pred_prob):
+    errors = y_real - y_pred_prob
+    plt.figure(figsize=(8, 6))
+    plt.hist(errors, bins=20, edgecolor='black')
+    plt.title('Histogram of Prediction Errors')
+    plt.xlabel('Real Error - Predicted Probability')
+    plt.ylabel('Frequency')
+    plt.savefig('og_error_histogram.jpg', bbox_inches='tight', dpi=150)
+
+# Plot the error as the model trains
+def plot_training_error(epoch_list, error_list):
+    plt.figure(figsize=(8, 6))
+    plt.plot(epoch_list, error_list, label='Training Error', color='blue')
+    plt.title('Training Error vs Epochs')
+    plt.xlabel('Epochs')
+    plt.ylabel('Error')
+    plt.legend()
+    plt.savefig('og_training_error_epochs.jpg', bbox_inches='tight', dpi=150)
+
+
+def linear(params, sample):
+    return np.dot(params, sample)   # Apply dot function to the parameters and the sample
+
 def binary_cross_entropy(y_true, y_pred):
-    y_pred = np.clip(y_pred, 1e-15, 1 - 1e-15)
+    y_pred = np.clip(y_pred, 1e-15, 1 - 1e-15)  # Prevent log(0) issues
     return -np.mean(y_true * np.log(y_pred) + (1 - y_true) * np.log(1 - y_pred))
 
-# Update the parameters using gradient descent
 def gradient_descent(params, samples, y, alfa):
     adjusted = np.copy(params) # Doesn't modify the original array
     for i in range (len(params)):
@@ -72,101 +92,90 @@ def gradient_descent(params, samples, y, alfa):
         adjusted[i] = params[i]-alfa*(1/len(samples))*c #Update the parameter
     return adjusted
 
-
-# Plots to visualize the data and get better predictions
-def plot_error_histogram(y_real, y_pred):
-    errors = y_real - y_pred
-    plt.figure(figsize=(8, 6))
-    plt.hist(errors, bins=20, edgecolor='black')
-    plt.title('Histogram of Errors')
-    plt.xlabel('Error')
-    plt.ylabel('Frequency')
-    plt.show()
-    
-def plot_scatter(y_real, y_pred):
-    plt.figure(figsize=(8, 6))
-    plt.scatter(y_real, y_pred, alpha=0.5)
-    plt.plot([min(y_real), max(y_real)], [min(y_real), max(y_real)], color='red', linestyle='--')  # Línea de referencia
-    plt.title('Real vs Predicted Values')
-    plt.xlabel('Real Values')
-    plt.ylabel('Predicted Values')
-    plt.show()
-
-def plot_training_error(epoch_list, error_list):
-    plt.figure(figsize=(8, 6))
-    plt.plot(epoch_list, error_list, label='Training Error', color='blue')
-    plt.title('Training Error vs Epochs')
-    plt.xlabel('Epochs')
-    plt.ylabel('Error')
-    plt.legend()
-    plt.show()
-
-
-
 def logistic_regression_train(x_train, y_train, alfa):
-    # Normalizing the data
+   # Normalizing the data
     normalized_x_train = normalization(x_train)
-    
-    # Initial parameters
-    params = np.zeros(x_train.shape[1])
-    previous_error = float('inf')
-    epochs = 0
+    # normalized_x_test = normalization(x_test)
 
+    # Initial parameters
+    params = np.zeros(x_train.shape[1]) #Set the parameters to an array of zeros 
+    previous_error = float('inf') #Set the previous error to infinity
+    epochs = 0
+    
     # Listas para almacenar métricas
     epoch_list = []
     error_list = []
 
     while True:
-        # Update the epochs and parameters using gradient descent
+        # Update the parameters using gradient descent
         params = gradient_descent(params, normalized_x_train, y_train, alfa)
         epochs += 1
         
-        # Calculate prediction
+        # Predict the values for the test set
         y_pred_prob = [sigmoid(linear(params, sample)) for sample in normalized_x_train]
-        y_pred = [1 if prob >= 0.5 else 0 for prob in y_pred_prob]
         
-        # Calculate errors
+        #Calculate the error
         current_error = binary_cross_entropy(y_train, y_pred_prob)
-        
+
         # Update lists
         epoch_list.append(epochs)
         error_list.append(current_error)
         
-        # Imprimir resultados
+        # Print results for the current epoch
+        
         print(f'Epoch: {epochs}')
         print('Parameters:', params)
         print('Current error:', current_error)
         print('Previous error:', previous_error)
         print('--------------------------------------')
 
-        # Break the loop if the error is lower than the previous one and the threshold is reached
         if abs(previous_error - current_error) < 0.000001:
             print("Finished training")
             break
         previous_error = current_error
-
+        
     # Graph error in training and validation
     plot_training_error(epoch_list, error_list)
 
     return params
-
     
 #Compare the model with the test set AKA validation dataset
-def logistic_regression_valid(x_valid, y_valid, alfa, params):
+def logistic_regression_valid(x_valid, y_valid, params):
+   # Normalizing the data
     normalized_x_valid = normalization(x_valid)
-
-    # Update the parameters using the gradient descent 
-    y_pred_prob = [sigmoid(linear(params, sample)) for sample in normalized_x_valid]
-    y_pred = [1 if prob >= 0.5 else 0 for prob in y_pred_prob]
-
-    # Calculate validation error
-    current_error = binary_cross_entropy(y_valid, y_pred_prob)
     
+    # Initial parameters
+    previous_error = float('inf') #Set the previous error to infinity
+    epochs = 0
+
+
+    while True:
+        
+        # Update the parameters 
+        epochs += 1
+        y_pred_prob = [sigmoid(linear(params, sample)) for sample in normalized_x_valid]
+        y_pred = [1 if prob >= 0.5 else 0 for prob in y_pred_prob]
+
+        # Calculate validation error
+        current_error = binary_cross_entropy(y_valid, y_pred_prob)
+
+        # Print results for the current epoch
+        print(f'Epoch: {epochs}')
+        print('Parameters:', params)
+        print('Current error:', current_error)
+        print('Previous error:', previous_error)
+        print('--------------------------------------')
+        print('R^2 test and prediction:', r_squared(y_valid, y_pred))
+        print('Confusion Matrix:', confusion_matrix(y_valid, y_pred))
+        print('......................................')
+
+        if abs(previous_error - current_error) < 0.000001:
+            print(" Finished comparing ")
+            break
+        previous_error = current_error
+
     # Graph error histogram
-    plot_error_histogram(y_valid, y_pred)
-    
-    # Graph the real values vs the predicted values
-    plot_scatter(y_valid, y_pred)
+    plot_error_histogram(y_valid, y_pred_prob)
     return params
 
 
@@ -216,10 +225,7 @@ x_test = testing_data[['Rating', 'Votes', 'Revenue (Millions)']].values.astype(f
 
 # Run logistic regression for the training set and test set
 trained_model=logistic_regression_train(x_train, y_train, 0.01)
-logistic_regression_valid(x_valid, y_valid, 0.01, trained_model)
+logistic_regression_valid(x_valid, y_valid, trained_model)
 
 # Uso de la función de prueba para comparar el modelo con el conjunto de prueba
 probabilities(x_test, trained_model)
-
-
-
